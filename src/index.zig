@@ -10,6 +10,7 @@ pub extern fn glDrawArrays(mode: i32, first: i32, last: i32) void;
 // Taken from web sys rust defintions...
 const COLOR_BUFFER_BIT: comptime_int = 16384;
 const TRIANGLE_STRIP: comptime_int = 5;
+const LINE_STRIP: comptime_int = 3;
 
 pub export fn add(a: i32, b: i32) i32 {
     return a + b;
@@ -29,16 +30,23 @@ pub export fn run() void {
         \\ }
     ;
     const program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
-    const positions: []const f32 = &.{ 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5 };
+    const positions: []const f32 = &.{
+        0.5,
+        0.5,
+        -0.5,
+        0.5,
+        0.5,
+        -0.5,
+    };
     const vao = bind2DFloat32Data(positions.ptr, positions.len);
 
     glBindVertexArray(vao);
-    glClearColor(1.0, 0.0, 0.0, 1.0);
+    glClearColor(1.0, 1.0, 0.0, 1.0);
     glClear(COLOR_BUFFER_BIT);
     glUseProgram(program);
     {
         const offset = 0;
-        const vertexCount = 4;
-        glDrawArrays(TRIANGLE_STRIP, offset, vertexCount);
+        const vertexCount = 3;
+        glDrawArrays(LINE_STRIP, offset, vertexCount);
     }
 }
