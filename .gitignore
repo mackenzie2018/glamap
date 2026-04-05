@@ -1,2 +1,4 @@
 map.xml
 *.xml
+.zig-cache/*
+zig-out/
