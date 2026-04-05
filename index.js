@@ -119,6 +119,7 @@ async function init() {
         gl.useProgram(programs[program])
       },
       glDrawArrays: gl.drawArrays.bind(gl),
+      // glPointSize: gl.pointSize().bind(gl),
     }
   });
   memory = mod.instance.exports.memory;
