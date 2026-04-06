@@ -28,13 +28,13 @@ pub export fn run() void {
         \\ attribute vec4 aVertexPosition;
         \\ void main() {
         \\   gl_Position = aVertexPosition;
-        \\   gl_Position.x -= 55.66385;
-        \\   gl_Position.x *= 5.0;
-        \\   gl_Position.x -= 1.0;
-        \\   gl_Position.y += 4.724538;
-        \\   gl_Position.y *= 2.0;
+        \\   gl_Position.y -= 55.66385;
+        \\   gl_Position.y *= 5.0;
         \\   gl_Position.y -= 1.0;
-        \\   gl_PointSize = 2.0;
+        \\   gl_Position.x += 4.724538;
+        \\   gl_Position.x *= 5.0;
+        \\   gl_Position.x -= 2.25;
+        \\   gl_PointSize = 0.01;
         \\ }
     ;
 

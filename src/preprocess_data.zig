@@ -51,7 +51,7 @@ pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][
     user_data.stdout.print(
         \\ {}, {},
         \\
-    , .{ lat, lon }) catch return;
+    , .{ lon, lat }) catch return;
 
     if (std.mem.eql(u8, name, "node")) {
         user_data.num_nodes += 1;
@@ -109,7 +109,7 @@ pub fn main() !void {
     var i: u64 = 0;
     while (true) {
         i += 1;
-        if (i == 10000) {
+        if (i == 100000) {
             break;
         }
         // if (i % 1000 == 0) {
