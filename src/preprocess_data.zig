@@ -4,30 +4,58 @@ const c = @cImport({
 });
 
 const UserData = struct {
-    stdout: std.io.Writer,
+    stdout: *std.io.Writer,
     num_nodes: u64 = 0,
+    min_lat: f32 = std.math.floatMax(f32),
+    max_lat: f32 = -std.math.floatMax(f32),
+    min_lon: f32 = std.math.floatMax(f32),
+    max_lon: f32 = -std.math.floatMax(f32),
 };
 
 pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][*c]const c.XML_Char) callconv(.c) void {
-    // _ = user_data;
-    // _ = name_c;
-    _ = attrs;
-    //   int i;
-    //   struct parser_data *parser_data = (struct parser_data *)userData;
-    //   (void)atts;
-    //
     const user_data: *UserData = @ptrCast(@alignCast(ctx));
     const name = std.mem.span(name_c);
+    if (!std.mem.eql(u8, name, "node")) {
+        return;
+    }
+
+    var i: usize = 0;
+    var lat_opt: ?[]const u8 = null;
+    var lon_opt: ?[]const u8 = null;
+    while (true) {
+        defer i += 2;
+        if (attrs[i] == null) {
+            break;
+        }
+
+        const field_name = std.mem.span(attrs[i]);
+        const field_val = std.mem.span(attrs[i + 1]);
+
+        if (std.mem.eql(u8, field_name, "lat")) {
+            lat_opt = field_val;
+        } else if (std.mem.eql(u8, field_name, "lon")) {
+            lon_opt = field_val;
+        }
+    }
+
+    const lat_s = lat_opt orelse return;
+    const lon_s = lon_opt orelse return;
+    const lat = std.fmt.parseFloat(f32, lat_s) catch return;
+    const lon = std.fmt.parseFloat(f32, lon_s) catch return;
+
+    user_data.max_lon = @max(lon, user_data.max_lon);
+    user_data.min_lon = @min(lon, user_data.min_lon);
+    user_data.max_lat = @max(lat, user_data.max_lat);
+    user_data.min_lat = @min(lat, user_data.min_lat);
+
+    user_data.stdout.print(
+        \\ {}, {},
+        \\
+    , .{ lat, lon }) catch return;
+
     if (std.mem.eql(u8, name, "node")) {
         user_data.num_nodes += 1;
     }
-    //   if (strcmp("node", name) == 0) {
-    //     parser_data->num_nodes += 1;
-    //   } else if (strcmp("way", name) == 0) {
-    //     parser_data->num_ways += 1;
-    //   } else if (strcmp("nd", name) == 0) {
-    //     parser_data->node_refs += 1;
-    //   }
 }
 
 // static void XMLCALL endElement(void *userData, const XML_Char *name) {
@@ -41,24 +69,17 @@ pub fn main() !void {
     const parser = c.XML_ParserCreate(null);
     defer c.XML_ParserFree(parser);
 
-    // const stdout_writer = std.io.std().writer();
     var stdout_buf: [4096]u8 = undefined;
-    var stdout_buf_writer = std.fs.File.stdout().writer(&stdout_buf);
-    defer stdout_buf_writer.end() catch {
-        unreachable;
+    var stdout_file = std.fs.File.stdout();
+    var stdout_buf_writer = stdout_file.writer(&stdout_buf);
+    defer stdout_buf_writer.end() catch |err| {
+        std.debug.print("ERROR while flush stdout_buf_writer: {}\n", .{err});
     };
-    var stdout_writer = stdout_buf_writer.interface;
+    var stdout_writer = &stdout_buf_writer.interface;
     try stdout_writer.writeAll(
-        \\ const Point = struct {
-        \\   long: f32,
-        \\   lat: f32,
-        \\ };
-        \\ 
-        \\ const points = [_]Point {
+        \\ pub const points = [_]f32 {
+        \\
     );
-    defer stdout_writer.writeAll(
-        \\ };
-    ) catch unreachable;
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -66,9 +87,6 @@ pub fn main() !void {
     const alloc = gpa.allocator();
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
-
-    // const f = std.fs.cwd().openFile(args[1], .{});
-    // const buffered_reader = std.io.Reader.buffered(try f.Reader());
 
     const f = try std.fs.cwd().openFile(args[1], .{});
     defer f.close();
@@ -91,33 +109,20 @@ pub fn main() !void {
     var i: u64 = 0;
     while (true) {
         i += 1;
-        if (i % 1000 == 0) {
-            std.debug.print(
-                "{d}\n",
-                .{user_data.num_nodes},
-            );
+        if (i == 10000) {
+            break;
         }
-        //   int i = 0;
-        //   do {
-        //     i += 1;
-        //     if (i == 3000000) {
-        //       break;
-        //     }
-        //     if (i % 1000 == 0) {
-        //       printf("nodes: %lu\tways: %lu\trefs: %lu\n", data.num_nodes,
-        //              data.num_ways, data.node_refs);
-        //     }
+        // if (i % 1000 == 0) {
+        //     std.debug.print(
+        //         "num_nodes: {d}\n",
+        //         .{user_data.num_nodes},
+        //     );
+        // }
         const BUF_SIZE = 4096;
         const buf = c.XML_GetBuffer(parser, BUF_SIZE);
         if (buf == null) {
             return error.NoBuffer;
         }
-        //     void *const buf = XML_GetBuffer(parser, BUFSIZ);
-        //     if (!buf) {
-        //       fprintf(stderr, "Couldn't allocate memory for buffer\n");
-        //       XML_ParserFree(parser);
-        //       return 1;
-        //     }
         const buf_u8: [*]u8 = @ptrCast(buf);
         const buf_slice = buf_u8[0..BUF_SIZE];
         const read_data_len = try buffered_reader.readSliceShort(buf_slice);
@@ -130,22 +135,15 @@ pub fn main() !void {
         if (parse_ret == c.XML_STATUS_ERROR) {
             return error.ParseError;
         }
-        //     if (XML_ParseBuffer(parser, (int)len, done) == XML_STATUS_ERROR) {
-        //       fprintf(stderr,
-        //               "Parse error at line %" XML_FMT_INT_MOD "u:\n%" XML_FMT_STR "\n",
-        //               XML_GetCurrentLineNumber(parser),
-        //               XML_ErrorString(XML_GetErrorCode(parser)));
-        //       XML_ParserFree(parser);
-        //       return 1;
-        //     }
-        //   } while (!done);
-        //
-        //   printf("nodes: %lu\tways: %lu\trefs: %lu\n", data.num_nodes, data.num_ways,
-        //          data.node_refs);
-        //
-        //   XML_ParserFree(parser);
-        //   return 0;
-        // }
-        //
     }
+    try stdout_writer.print(
+        \\ 
+        \\ }};
+        \\ 
+        \\ pub const min_lat = {d};
+        \\ pub const max_lat = {d};
+        \\ pub const min_lon = {d};
+        \\ pub const max_lon = {d};
+        \\ 
+    , .{ user_data.min_lat, user_data.max_lat, user_data.min_lon, user_data.max_lon });
 }
