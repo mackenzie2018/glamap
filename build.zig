@@ -43,21 +43,6 @@ const Builder = struct {
         const install_json_step = self.b.addInstallFile(map_json, "bin/map_data.json");
         install_json_step.step.dependOn(&run.step);
         self.b.getInstallStep().dependOn(&install_json_step.step);
-        // run.step.dependOn(&exe.step);
-        // const map_json = run.captureStdOut();
-        // const renamed = self.b.addWriteFiles();
-        // const map_json_renamed = renamed.addCopyFile(map_json, "map_data.zig");
-        // const map_data_lib = self.b.addLibrary(.{
-        //     .name = "map_data",
-        //     .linkage = .static,
-        //     .root_module = self.b.createModule(.{
-        //         .root_source_file = map_json_renamed,
-        //         .target = self.wasm_target,
-        //         .optimize = self.opt,
-        //     }),
-        // });
-        // map_data_lib.step.dependOn(&run.step);
-        // return .{ map_data_lib, run };
     }
 
     fn buildApp(self: *Builder) void {
