@@ -69,6 +69,10 @@ pub fn main() !void {
     const parser = c.XML_ParserCreate(null);
     defer c.XML_ParserFree(parser);
 
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const alloc = gpa.allocator();
+
     var stdout_buf: [4096]u8 = undefined;
     var stdout_file = std.fs.File.stdout();
     var stdout_buf_writer = stdout_file.writer(&stdout_buf);
@@ -81,10 +85,6 @@ pub fn main() !void {
         \\
     );
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-
-    const alloc = gpa.allocator();
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
 
@@ -112,12 +112,6 @@ pub fn main() !void {
         if (i == 100000) {
             break;
         }
-        // if (i % 1000 == 0) {
-        //     std.debug.print(
-        //         "num_nodes: {d}\n",
-        //         .{user_data.num_nodes},
-        //     );
-        // }
         const BUF_SIZE = 4096;
         const buf = c.XML_GetBuffer(parser, BUF_SIZE);
         if (buf == null) {
