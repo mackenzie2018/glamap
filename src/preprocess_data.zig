@@ -4,7 +4,7 @@ const c = @cImport({
 });
 
 const UserData = struct {
-    stdout: *std.io.Writer,
+    stdout: *std.json.Stringify,
     num_nodes: u64 = 0,
     min_lat: f32 = std.math.floatMax(f32),
     max_lat: f32 = -std.math.floatMax(f32),
@@ -53,6 +53,9 @@ pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][
         \\
     , .{ lon, lat }) catch return;
 
+    user_data.stdout.write(lon) catch unreachable;
+    user_data.stdout.write(lat) catch unreachable;
+
     if (std.mem.eql(u8, name, "node")) {
         user_data.num_nodes += 1;
     }
@@ -79,11 +82,21 @@ pub fn main() !void {
     defer stdout_buf_writer.end() catch |err| {
         std.debug.print("ERROR while flush stdout_buf_writer: {}\n", .{err});
     };
-    var stdout_writer = &stdout_buf_writer.interface;
-    try stdout_writer.writeAll(
-        \\ pub const points = [_]f32 {
-        \\
-    );
+    // var stdout_writer = &stdout_buf_writer.interface;
+    // try stdout_writer.writeAll(
+    //     \\ pub const points = [_]f32 {
+    //     \\
+    // );
+
+    var json_writer: std.json.Stringify = .{
+        .writer = &stdout_buf_writer.interface,
+        .options = .{ .whitespace = .indent_2 },
+    };
+    try json_writer.beginObject();
+    try json_writer.objectField("points");
+    try json_writer.beginArray();
+    // try write_stream.write(123);
+    // try write_stream.endObject();
 
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
@@ -100,12 +113,11 @@ pub fn main() !void {
     }
 
     var user_data = UserData{
-        .stdout = stdout_writer,
+        .stdout = &json_writer,
     };
     c.XML_SetUserData(parser, &user_data);
     c.XML_SetElementHandler(parser, startElement, null);
-    //   XML_SetElementHandler(parser, startElement, endElement);
-    //
+
     var i: u64 = 0;
     while (true) {
         i += 1;
@@ -130,14 +142,14 @@ pub fn main() !void {
             return error.ParseError;
         }
     }
-    try stdout_writer.print(
-        \\ 
-        \\ }};
-        \\ 
-        \\ pub const min_lat = {d};
-        \\ pub const max_lat = {d};
-        \\ pub const min_lon = {d};
-        \\ pub const max_lon = {d};
-        \\ 
-    , .{ user_data.min_lat, user_data.max_lat, user_data.min_lon, user_data.max_lon });
+    try user_data.stdout.endArray();
+    try user_data.stdout.objectField("min_lat");
+    try user_data.stdout.write(user_data.min_lat);
+    try user_data.stdout.objectField("max_lat");
+    try user_data.stdout.write(user_data.max_lat);
+    try user_data.stdout.objectField("min_lon");
+    try user_data.stdout.write(user_data.min_lon);
+    try user_data.stdout.objectField("max_lon");
+    try user_data.stdout.write(user_data.max_lon);
+    try user_data.stdout.endObject();
 }
