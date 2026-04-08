@@ -1,3 +1,4 @@
+const std = @import("std");
 const map_data = @import("map_data.zig");
 pub extern fn compileLinkProgram(vs: [*]const u8, vs_len: usize, fs: [*]const u8, fs_len: usize) i32;
 pub extern fn bind2DFloat32Data(data: [*]const f32, data_len: usize) i32;
@@ -22,7 +23,22 @@ const fs_source = @embedFile("fragment.glsl");
 const lat_centre_key = "lat_centre";
 const lon_centre_key = "lon_centre";
 
+pub extern fn logWasm(s: [*]u8, len: usize) void;
+
+var map_data_arr = std.ArrayListUnmanaged(u8){};
+pub export var global_chunk: [16384]u8 = undefined;
+
+// Call this once from JS before pushing any data
+pub export fn init() void {
+    map_data_arr.ensureTotalCapacity(std.heap.wasm_allocator, 5_000_000) catch unreachable;
+}
+
+pub export fn pushData(len: usize) void {
+    map_data_arr.appendSlice(std.heap.wasm_allocator, global_chunk[0..len]) catch unreachable;
+}
+
 pub export fn run() void {
+    logWasm(map_data_arr.items.ptr, 1000);
     const program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
     const vao = bind2DFloat32Data(&map_data.points, map_data.points.len);
     glBindVertexArray(vao);

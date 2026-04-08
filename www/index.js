@@ -3,6 +3,17 @@ var memory = null;
 var vaos = [];
 var programs = [];
 var uniform_locs = [];
+
+
+
+
+function logWasm(s, len) {
+  const buf = new Uint8Array(memory.buffer, s, len);
+  console.log(new TextDecoder('utf-8').decode(buf));
+}
+
+
+
 function loadShader(gl, type, source) {
   // console.log('Type of gl is: ', typeof(gl), gl);
   const shader = gl.createShader(type);
@@ -97,27 +108,50 @@ async function init() {
     console.log('yay! loaded webgl context :)')
   }
 
-
-
-  const mod = await WebAssembly.instantiateStreaming(fetch("/zig-out/bin/index.wasm"), {
-    env: {
-      compileLinkProgram: compileLinkProgramWasm,
-      bind2DFloat32Data: bind2DFloat32DataWasm,
-      glBindVertexArray: (vao) => gl.bindVertexArray(vaos[vao]),
-      glClearColor: gl.clearColor.bind(gl),
-      glClear: gl.clear.bind(gl),
-      glUseProgram: (program) => {
-        gl.useProgram(programs[program])
-      },
-      glDrawArrays: gl.drawArrays.bind(gl),
-      glGetUniformLoc: getUniformLocWasm,
-      glUniform1f: (loc, val) => {
-        gl.uniform1f(uniform_locs[loc], val);
-      },
-      // glPointSize: gl.pointSize().bind(gl),
-    }
-  });
+  const mod = await WebAssembly.instantiateStreaming(
+    fetch("/zig-out/bin/index.wasm"),
+    {
+      env: {
+        logWasm: logWasm,
+        compileLinkProgram: compileLinkProgramWasm,
+        bind2DFloat32Data: bind2DFloat32DataWasm,
+        glBindVertexArray: (vao) => gl.bindVertexArray(vaos[vao]),
+        glClearColor: gl.clearColor.bind(gl),
+        glClear: gl.clear.bind(gl),
+        glUseProgram: (program) => {
+          gl.useProgram(programs[program])
+        },
+        glDrawArrays: gl.drawArrays.bind(gl),
+        glGetUniformLoc: getUniformLocWasm,
+        glUniform1f: (loc, val) => {
+          gl.uniform1f(uniform_locs[loc], val);
+        },
+        // glPointSize: gl.pointSize().bind(gl),
+      }
+    });
   memory = mod.instance.exports.memory;
+  mod.instance.exports.init();
+
+  const map_data_response = await fetch("map_data.json");
+  const data_reader = map_data_response.body.getReader({
+    mode: 'byob',
+  });
+  let array_buf = new ArrayBuffer(16384);
+  while (true) {
+    // const array_buf = new ArrayBuffer(4096);
+    const { value, done } = await data_reader.read(new Uint8Array(array_buf));
+    array_buf = value.buffer;
+    if (done) break;
+    const chunk_buf = new Uint8Array(memory.buffer, mod.instance.exports.global_chunk.value, 16384);
+    chunk_buf.set(value);
+    mod.instance.exports.pushData(value.length);
+    // console.log(chunk_buf);
+    // mod.instance.exports.pushData(value.byteLength);
+    console.log('Received: ', value, value.byteLength);
+    break;
+  }
+
+
 
 
   canvas.onousedown = (ev) => {
