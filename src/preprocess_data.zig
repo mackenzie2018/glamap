@@ -90,11 +90,14 @@ pub fn main() !void {
     const out_f = try std.fs.cwd().createFile(args[2], .{});
     var points_out_writer_obj = out_f.writer(&out_f_buf);
     const points_out_writer = &points_out_writer_obj.interface;
+    defer points_out_writer.flush() catch {};
 
     var metadata_out_buf: [4096]u8 = undefined;
     const metadata_out_f = try std.fs.cwd().createFile(args[3], .{});
+    defer metadata_out_f.close();
     var metadata_out_writer_obj = metadata_out_f.writer(&metadata_out_buf);
     const metadata_out_writer = &metadata_out_writer_obj.interface;
+    defer metadata_out_writer.flush() catch {};
 
     var json_writer: std.json.Stringify = .{
         .writer = metadata_out_writer,
