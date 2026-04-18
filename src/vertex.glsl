@@ -13,5 +13,5 @@ void main() {
   gl_Position.x += lon_centre; // 4.724538;
   gl_Position.x *= 5.0;
   gl_Position.x -= 2.25;
-  gl_PointSize = 0.01;
+  gl_PointSize = 0.05;
 }

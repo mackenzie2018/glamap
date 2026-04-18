@@ -38,9 +38,10 @@ pub export fn pushData(len: usize) void {
 }
 
 pub export fn run() void {
-    logWasm(map_data_arr.items.ptr, 1000);
+    logWasm(map_data_arr.items.ptr, 1000000);
     const program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
-    const vao = bind2DFloat32Data(&map_data.points, map_data.points.len);
+    const map_data_f32: []const f32 = @alignCast(std.mem.bytesAsSlice(f32, map_data_arr.items));
+    const vao = bind2DFloat32Data(map_data_f32.ptr, map_data_f32.len);
     glBindVertexArray(vao);
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(Gl.COLOR_BUFFER_BIT);
@@ -52,7 +53,7 @@ pub export fn run() void {
     glUniform1f(lon_centre, 4.724538);
     {
         const offset = 0;
-        const vertexCount = map_data.points.len / 2;
-        glDrawArrays(Gl.POINTS, offset, vertexCount);
+        const vertexCount = map_data_f32.len / 2;
+        glDrawArrays(Gl.POINTS, offset, @intCast(vertexCount));
     }
 }

@@ -132,7 +132,7 @@ async function init() {
   memory = mod.instance.exports.memory;
   mod.instance.exports.init();
 
-  const map_data_response = await fetch("map_data.json");
+  const map_data_response = await fetch("map_data.bin");
   const data_reader = map_data_response.body.getReader({
     mode: 'byob',
   });
