@@ -2,9 +2,16 @@ const std = @import("std");
 const c = @cImport({
     @cInclude("expat.h");
 });
+const builtin = @import("builtin");
+
+// const metadata_out: *std.json.Stringify,
+// New Strategy: Two outputs from the application:
+//  1. Metadata is written to json file
+//  2. Points data is written as native / binary floating point data.
 
 const UserData = struct {
-    stdout: *std.json.Stringify,
+    points_out: *std.io.Writer,
+    metadata_out: *std.json.Stringify,
     num_nodes: u64 = 0,
     min_lat: f32 = std.math.floatMax(f32),
     max_lat: f32 = -std.math.floatMax(f32),
@@ -48,26 +55,20 @@ pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][
     user_data.max_lat = @max(lat, user_data.max_lat);
     user_data.min_lat = @min(lat, user_data.min_lat);
 
-    user_data.stdout.print(
-        \\ {}, {},
-        \\
-    , .{ lon, lat }) catch return;
+    // user_data.points_out.print(
+    //     \\ {}, {},
+    //     \\
+    // , .{ lon, lat }) catch return;
 
-    user_data.stdout.write(lon) catch unreachable;
-    user_data.stdout.write(lat) catch unreachable;
+    std.debug.assert(builtin.cpu.arch.endian() == .little);
+    user_data.points_out.writeAll(std.mem.asBytes(&lon)) catch unreachable;
+    user_data.points_out.writeAll(std.mem.asBytes(&lat)) catch unreachable;
 
     if (std.mem.eql(u8, name, "node")) {
         user_data.num_nodes += 1;
     }
 }
 
-// static void XMLCALL endElement(void *userData, const XML_Char *name) {
-//   // int *const depthPtr = (int *)userData;
-//   // (void)name;
-//   //
-//   // *depthPtr -= 1;
-// }
-//
 pub fn main() !void {
     const parser = c.XML_ParserCreate(null);
     defer c.XML_ParserFree(parser);
@@ -76,54 +77,47 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const alloc = gpa.allocator();
 
-    var stdout_buf: [4096]u8 = undefined;
-    var stdout_file = std.fs.File.stdout();
-    var stdout_buf_writer = stdout_file.writer(&stdout_buf);
-    defer stdout_buf_writer.end() catch |err| {
-        std.debug.print("ERROR while flush stdout_buf_writer: {}\n", .{err});
-    };
-    // var stdout_writer = &stdout_buf_writer.interface;
-    // try stdout_writer.writeAll(
-    //     \\ pub const points = [_]f32 {
-    //     \\
-    // );
-
-    var json_writer: std.json.Stringify = .{
-        .writer = &stdout_buf_writer.interface,
-        .options = .{ .whitespace = .indent_2 },
-    };
-    try json_writer.beginObject();
-    try json_writer.objectField("points");
-    try json_writer.beginArray();
-    // try write_stream.write(123);
-    // try write_stream.endObject();
-
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
 
-    const f = try std.fs.cwd().openFile(args[1], .{});
-    defer f.close();
+    var in_f_buf: [4096]u8 = undefined;
+    const in_f = try std.fs.cwd().openFile(args[1], .{});
+    defer in_f.close();
+    var in_reader_obj = in_f.reader(&in_f_buf);
+    var in_reader = &in_reader_obj.interface;
 
-    var read_buf: [4096]u8 = undefined;
-    var f_reader = f.reader(&read_buf);
-    const buffered_reader = &f_reader.interface;
+    var out_f_buf: [4096]u8 = undefined;
+    const out_f = try std.fs.cwd().createFile(args[2], .{});
+    var points_out_writer_obj = out_f.writer(&out_f_buf);
+    const points_out_writer = &points_out_writer_obj.interface;
+
+    var metadata_out_buf: [4096]u8 = undefined;
+    const metadata_out_f = try std.fs.cwd().createFile(args[3], .{});
+    var metadata_out_writer_obj = metadata_out_f.writer(&metadata_out_buf);
+    const metadata_out_writer = &metadata_out_writer_obj.interface;
+
+    var json_writer: std.json.Stringify = .{
+        .writer = metadata_out_writer,
+        .options = .{ .whitespace = .indent_2 },
+    };
 
     if (parser == null) {
         return error.NoParser;
     }
-
     var user_data = UserData{
-        .stdout = &json_writer,
+        .points_out = points_out_writer,
+        .metadata_out = &json_writer,
     };
+
     c.XML_SetUserData(parser, &user_data);
     c.XML_SetElementHandler(parser, startElement, null);
 
     var i: u64 = 0;
     while (true) {
         i += 1;
-        if (i == 100000) {
-            break;
-        }
+        // if (i == 100000) {
+        //     break;
+        // }
         const BUF_SIZE = 4096;
         const buf = c.XML_GetBuffer(parser, BUF_SIZE);
         if (buf == null) {
@@ -131,7 +125,7 @@ pub fn main() !void {
         }
         const buf_u8: [*]u8 = @ptrCast(buf);
         const buf_slice = buf_u8[0..BUF_SIZE];
-        const read_data_len = try buffered_reader.readSliceShort(buf_slice);
+        const read_data_len = try in_reader.readSliceShort(buf_slice);
         // const read_data_len = buffered_reader.read(buf_slice);
         if (read_data_len == 0) {
             break;
@@ -142,14 +136,14 @@ pub fn main() !void {
             return error.ParseError;
         }
     }
-    try user_data.stdout.endArray();
-    try user_data.stdout.objectField("min_lat");
-    try user_data.stdout.write(user_data.min_lat);
-    try user_data.stdout.objectField("max_lat");
-    try user_data.stdout.write(user_data.max_lat);
-    try user_data.stdout.objectField("min_lon");
-    try user_data.stdout.write(user_data.min_lon);
-    try user_data.stdout.objectField("max_lon");
-    try user_data.stdout.write(user_data.max_lon);
-    try user_data.stdout.endObject();
+    try user_data.metadata_out.beginObject();
+    try user_data.metadata_out.objectField("min_lat");
+    try user_data.metadata_out.write(user_data.min_lat);
+    try user_data.metadata_out.objectField("max_lat");
+    try user_data.metadata_out.write(user_data.max_lat);
+    try user_data.metadata_out.objectField("min_lon");
+    try user_data.metadata_out.write(user_data.min_lon);
+    try user_data.metadata_out.objectField("max_lon");
+    try user_data.metadata_out.write(user_data.max_lon);
+    try user_data.metadata_out.endObject();
 }

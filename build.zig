@@ -22,6 +22,7 @@ const Builder = struct {
                 .os_tag = .freestanding,
             }),
             .osm_path = b.path(osm_path),
+            // .metadata_path = b.path(metadata_path),
         };
     }
 
@@ -39,10 +40,17 @@ const Builder = struct {
 
         const run = self.b.addRunArtifact(exe);
         run.addFileArg(self.osm_path);
-        const map_json = run.captureStdOut();
-        const install_json_step = self.b.addInstallFile(map_json, "bin/map_data.json");
-        install_json_step.step.dependOn(&run.step);
-        self.b.getInstallStep().dependOn(&install_json_step.step);
+        const points_data = run.addOutputFileArg("map_data.bin");
+        const metadata = run.addOutputFileArg("metadata.json");
+
+        const install_bin = self.b.addInstallFile(points_data, "bin/map_data.bin");
+        self.b.getInstallStep().dependOn(&install_bin.step);
+
+        const install_metadata = self.b.addInstallFile(metadata, "bin/metadata.json");
+        self.b.getInstallStep().dependOn(&install_metadata.step);
+
+        install_bin.step.dependOn(&run.step);
+        install_metadata.step.dependOn(&run.step);
     }
 
     fn buildApp(self: *Builder) void {
