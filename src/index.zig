@@ -56,10 +56,14 @@ pub export fn run() void {
     glUseProgram(program);
     const lat_centre = glGetUniformLoc(program, lat_centre_key, lat_centre_key.len);
     const lon_centre = glGetUniformLoc(program, lon_centre_key, lon_centre_key.len);
-    _ = MAP_DATA.min_lat + ((MAP_DATA.max_lat - MAP_DATA.min_lat) / 2);
-    _ = MAP_DATA.min_lon + ((MAP_DATA.max_lon - MAP_DATA.min_lon) / 2);
-    glUniform1f(lat_centre, 55.66385);
-    glUniform1f(lon_centre, 4.724538);
+    const glasgow_lat_centre = MAP_DATA.min_lat + ((MAP_DATA.max_lat - MAP_DATA.min_lat) / 2);
+    const glasgow_lon_centre = MAP_DATA.min_lon + ((MAP_DATA.max_lon - MAP_DATA.min_lon) / 2);
+    // glUniform1f(lat_centre, MAP_DATA.min_lat);
+    // glUniform1f(lon_centre, MAP_DATA.min_lon);
+    glUniform1f(lat_centre, glasgow_lat_centre);
+    glUniform1f(lon_centre, glasgow_lon_centre);
+    // glUniform1f(lat_centre, 55.66385);
+    // glUniform1f(lon_centre, 4.724538);
     {
         const offset = 0;
         const vertexCount = map_data_f32.len / 2;

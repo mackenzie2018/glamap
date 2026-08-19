@@ -148,7 +148,6 @@ async function init() {
     // console.log(chunk_buf);
     // mod.instance.exports.pushData(value.byteLength);
     console.log('Received: ', value, value.byteLength);
-    break;
   }
 
 
