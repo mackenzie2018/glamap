@@ -71,9 +71,9 @@ pub export fn mouseMove(x_norm: f32, y_norm: f32) void {
     if (!global.mouse_down) {
         return;
     }
-    const scale = 1;
-    global.lon_centre += (x_norm - global.mouse_down_x) * scale * -1.0;
-    global.lat_centre += (y_norm - global.mouse_down_y) * scale;
+    const scale = 0.5;
+    global.lon_centre -= (x_norm - global.mouse_down_x) * scale / global.zoom;
+    global.lat_centre += (y_norm - global.mouse_down_y) * scale / global.zoom;
     global.mouse_down_x = x_norm;
     global.mouse_down_y = y_norm;
     render();
