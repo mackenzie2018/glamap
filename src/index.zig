@@ -29,6 +29,7 @@ const vs_source = @embedFile("vertex.glsl");
 const fs_source = @embedFile("fragment.glsl");
 const lat_centre_key = "lat_centre";
 const lon_centre_key = "lon_centre";
+const zoom_loc_key = "zoom";
 
 pub extern fn logWasm(s: [*]u8, len: usize) void;
 
@@ -54,6 +55,8 @@ const GlobalState = struct {
     lon_centre_loc: i32 = 0,
     program: i32 = 0,
     vao: i32 = 0,
+    zoom: f32 = 1.0,
+    zoom_loc: i32 = 0,
 };
 var global = GlobalState{};
 
@@ -80,6 +83,15 @@ pub export fn mouseUp() void {
     global.mouse_down = false;
 }
 
+pub export fn zoom(deltaY: f32) void {
+    if (deltaY < 0) {
+        global.zoom *= 0.5;
+    } else if (deltaY > 0) {
+        global.zoom *= 2.0;
+    }
+    render();
+}
+
 pub export fn init_program() void {
     logWasm(map_data_arr.items.ptr, 1000);
     global.program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
@@ -87,6 +99,7 @@ pub export fn init_program() void {
     global.vao = bind2DFloat32Data(map_data_f32.ptr, map_data_f32.len);
     global.lat_centre_loc = glGetUniformLoc(global.program, lat_centre_key, lat_centre_key.len);
     global.lon_centre_loc = glGetUniformLoc(global.program, lon_centre_key, lon_centre_key.len);
+    global.zoom_loc = glGetUniformLoc(global.program, zoom_loc_key.ptr, zoom_loc_key.len);
 }
 
 pub export fn render() void {
@@ -98,6 +111,7 @@ pub export fn render() void {
     glUseProgram(global.program);
     glUniform1f(global.lat_centre_loc, global.lat_centre);
     glUniform1f(global.lon_centre_loc, global.lon_centre);
+    glUniform1f(global.zoom_loc, global.zoom);
     {
         const offset = 0;
         const vertexCount = map_data_f32.len / 2;

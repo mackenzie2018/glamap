@@ -101,6 +101,8 @@ function getUniformLocWasm(program, namep, name_len) {
 
 async function init() {
   const canvas = document.getElementById("canvas");
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
   gl = canvas.getContext("webgl2");
   if (gl === null) {
     console.log('failed to get webgl context :(')
@@ -171,6 +173,11 @@ async function init() {
       (ev.clientX - rect.left) / rect.width,
       (ev.clientY - rect.top) / rect.height,
     );
+  };
+
+  canvas.onwheel = (ev) => {
+    // console.log(ev);
+    mod.instance.exports.zoom(ev.deltaY);
   };
 
   mod.instance.exports.render();
