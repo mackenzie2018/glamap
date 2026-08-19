@@ -18,6 +18,13 @@ const Gl = struct {
     const POINTS: u32 = 0;
 };
 
+const MAP_DATA = struct {
+    const min_lat: f32 = 55.663848876953125;
+    const max_lat: f32 = 56.32396697998047;
+    const min_lon: f32 = -4.7245378494262695;
+    const max_lon: f32 = -3.783839225769043;
+};
+
 const vs_source = @embedFile("vertex.glsl");
 const fs_source = @embedFile("fragment.glsl");
 const lat_centre_key = "lat_centre";
@@ -25,7 +32,7 @@ const lon_centre_key = "lon_centre";
 
 pub extern fn logWasm(s: [*]u8, len: usize) void;
 
-var map_data_arr = std.ArrayListUnmanaged(u8){};
+var map_data_arr = std.ArrayList(u8).empty;
 pub export var global_chunk: [16384]u8 = undefined;
 
 // Call this once from JS before pushing any data
@@ -38,7 +45,7 @@ pub export fn pushData(len: usize) void {
 }
 
 pub export fn run() void {
-    logWasm(map_data_arr.items.ptr, 1000000);
+    logWasm(map_data_arr.items.ptr, 1000);
     const program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
     const map_data_f32: []const f32 = @alignCast(std.mem.bytesAsSlice(f32, map_data_arr.items));
     const vao = bind2DFloat32Data(map_data_f32.ptr, map_data_f32.len);
@@ -49,6 +56,8 @@ pub export fn run() void {
     glUseProgram(program);
     const lat_centre = glGetUniformLoc(program, lat_centre_key, lat_centre_key.len);
     const lon_centre = glGetUniformLoc(program, lon_centre_key, lon_centre_key.len);
+    _ = MAP_DATA.min_lat + ((MAP_DATA.max_lat - MAP_DATA.min_lat) / 2);
+    _ = MAP_DATA.min_lon + ((MAP_DATA.max_lon - MAP_DATA.min_lon) / 2);
     glUniform1f(lat_centre, 55.66385);
     glUniform1f(lon_centre, 4.724538);
     {

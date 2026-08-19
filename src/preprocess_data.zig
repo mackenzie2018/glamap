@@ -10,13 +10,15 @@ const builtin = @import("builtin");
 //  2. Points data is written as native / binary floating point data.
 
 const UserData = struct {
-    points_out: *std.io.Writer,
+    points_out: *std.Io.Writer,
     metadata_out: *std.json.Stringify,
     num_nodes: u64 = 0,
     min_lat: f32 = std.math.floatMax(f32),
     max_lat: f32 = -std.math.floatMax(f32),
     min_lon: f32 = std.math.floatMax(f32),
     max_lon: f32 = -std.math.floatMax(f32),
+    lat_fails: u64 = 0,
+    lon_fails: u64 = 0,
 };
 
 pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][*c]const c.XML_Char) callconv(.c) void {
@@ -47,8 +49,14 @@ pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][
 
     const lat_s = lat_opt orelse return;
     const lon_s = lon_opt orelse return;
-    const lat = std.fmt.parseFloat(f32, lat_s) catch return;
-    const lon = std.fmt.parseFloat(f32, lon_s) catch return;
+    const lat = std.fmt.parseFloat(f32, lat_s) catch {
+        user_data.lat_fails += 1;
+        return;
+    };
+    const lon = std.fmt.parseFloat(f32, lon_s) catch {
+        user_data.lon_fails += 1;
+        return;
+    };
 
     user_data.max_lon = @max(lon, user_data.max_lon);
     user_data.min_lon = @min(lon, user_data.min_lon);
@@ -69,33 +77,41 @@ pub fn startElement(ctx: ?*anyopaque, name_c: [*c]const c.XML_Char, attrs: [*c][
     }
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
     const parser = c.XML_ParserCreate(null);
     defer c.XML_ParserFree(parser);
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     defer _ = gpa.deinit();
-    const alloc = gpa.allocator();
+    // const alloc = gpa.allocator();
 
-    const args = try std.process.argsAlloc(alloc);
-    defer std.process.argsFree(alloc, args);
+    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer arena.deinit();
+
+    const args = try init.minimal.args.toSlice(arena.allocator());
+    // const args = try std.process.argsAlloc(alloc);
+    // defer std.process.argsFree(alloc, args);
 
     var in_f_buf: [4096]u8 = undefined;
-    const in_f = try std.fs.cwd().openFile(args[1], .{});
-    defer in_f.close();
-    var in_reader_obj = in_f.reader(&in_f_buf);
+    const in_f = try std.Io.Dir.cwd().openFile(io, args[1], .{});
+    // const in_f = try std.fs.cwd().openFile(args[1], .{});
+    defer in_f.close(io);
+    var in_reader_obj = in_f.reader(io, &in_f_buf);
     var in_reader = &in_reader_obj.interface;
 
     var out_f_buf: [4096]u8 = undefined;
-    const out_f = try std.fs.cwd().createFile(args[2], .{});
-    var points_out_writer_obj = out_f.writer(&out_f_buf);
+    const out_f = try std.Io.Dir.cwd().createFile(io, args[2], .{});
+    // const out_f = try std.fs.cwd().createFile(args[2], .{});
+    var points_out_writer_obj = out_f.writer(io, &out_f_buf);
     const points_out_writer = &points_out_writer_obj.interface;
     defer points_out_writer.flush() catch {};
 
     var metadata_out_buf: [4096]u8 = undefined;
-    const metadata_out_f = try std.fs.cwd().createFile(args[3], .{});
-    defer metadata_out_f.close();
-    var metadata_out_writer_obj = metadata_out_f.writer(&metadata_out_buf);
+    const metadata_out_f = try std.Io.Dir.cwd().createFile(io, args[3], .{});
+    // const metadata_out_f = try std.fs.cwd().createFile(args[3], .{});
+    defer metadata_out_f.close(io);
+    var metadata_out_writer_obj = metadata_out_f.writer(io, &metadata_out_buf);
     const metadata_out_writer = &metadata_out_writer_obj.interface;
     defer metadata_out_writer.flush() catch {};
 
@@ -137,6 +153,12 @@ pub fn main() !void {
         }
     }
     try user_data.metadata_out.beginObject();
+    try user_data.metadata_out.objectField("lat_fails");
+    try user_data.metadata_out.write(user_data.lat_fails);
+    try user_data.metadata_out.objectField("lon_fails");
+    try user_data.metadata_out.write(user_data.lon_fails);
+    try user_data.metadata_out.objectField("num_nodes");
+    try user_data.metadata_out.write(user_data.num_nodes);
     try user_data.metadata_out.objectField("min_lat");
     try user_data.metadata_out.write(user_data.min_lat);
     try user_data.metadata_out.objectField("max_lat");

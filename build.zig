@@ -35,8 +35,8 @@ const Builder = struct {
                 .optimize = self.opt,
             }),
         });
-        exe.linkSystemLibrary("expat");
-        exe.linkLibC();
+        exe.root_module.linkSystemLibrary("expat", .{});
+        exe.root_module.link_libc = true;
 
         const run = self.b.addRunArtifact(exe);
         run.addFileArg(self.osm_path);

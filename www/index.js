@@ -154,26 +154,26 @@ async function init() {
 
 
 
-  canvas.onousedown = (ev) => {
-    const rect = canvas.getBoundingClientRect();
-    mod.instance.exports.mouseDown(
-      ev.clientX - rect.left,
-      ev.clientY = rect.top,
-    );
-  };
-
-
-  canvas.onmouseup = () => {
-    mod.instance.exports.mouseUp();
-  };
-
-  canvas.onmousemove = (ev) => {
-    const rect = canvas.getBoundingClientRect();
-    mod.instance.exports.mouseDown(
-      ev.clientX - rect.left,
-      ev.clientY = rect.top,
-    );
-  };
+  // canvas.onousedown = (ev) => {
+  //   const rect = canvas.getBoundingClientRect();
+  //   mod.instance.exports.mouseDown(
+  //     ev.clientX - rect.left,
+  //     ev.clientY = rect.top,
+  //   );
+  // };
+  //
+  //
+  // canvas.onmouseup = () => {
+  //   mod.instance.exports.mouseUp();
+  // };
+  //
+  // canvas.onmousemove = (ev) => {
+  //   const rect = canvas.getBoundingClientRect();
+  //   mod.instance.exports.mouseDown(
+  //     ev.clientX - rect.left,
+  //     ev.clientY = rect.top,
+  //   );
+  // };
 
   mod.instance.exports.run();
 };
