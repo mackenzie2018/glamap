@@ -76,6 +76,10 @@ pub export fn mouseMove(x_norm: f32, y_norm: f32) void {
     render();
 }
 
+pub export fn mouseUp() void {
+    global.mouse_down = false;
+}
+
 pub export fn init_program() void {
     logWasm(map_data_arr.items.ptr, 1000);
     global.program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);

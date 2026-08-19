@@ -161,9 +161,9 @@ async function init() {
   };
 
 
-  // canvas.onmouseup = () => {
-  //   mod.instance.exports.mouseUp();
-  // };
+  canvas.onmouseup = () => {
+    mod.instance.exports.mouseUp();
+  };
 
   canvas.onmousemove = (ev) => {
     const rect = canvas.getBoundingClientRect();
