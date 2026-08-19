@@ -44,26 +44,56 @@ pub export fn pushData(len: usize) void {
     map_data_arr.appendSlice(std.heap.wasm_allocator, global_chunk[0..len]) catch unreachable;
 }
 
-pub export fn run() void {
+const GlobalState = struct {
+    mouse_down: bool = false,
+    mouse_down_x: f32 = 0.0,
+    mouse_down_y: f32 = 0.0,
+    lat_centre: f32 = MAP_DATA.min_lat + (MAP_DATA.max_lat - MAP_DATA.min_lat) / 2.0,
+    lon_centre: f32 = MAP_DATA.min_lon + (MAP_DATA.max_lon - MAP_DATA.min_lon) / 2.0,
+    lat_centre_loc: i32 = 0,
+    lon_centre_loc: i32 = 0,
+    program: i32 = 0,
+    vao: i32 = 0,
+};
+var global = GlobalState{};
+
+pub export fn mouseDown(x_norm: f32, y_norm: f32) void {
+    global.mouse_down = true;
+    global.mouse_down_x = x_norm;
+    global.mouse_down_y = y_norm;
+    render();
+}
+
+pub export fn mouseMove(x_norm: f32, y_norm: f32) void {
+    if (!global.mouse_down) {
+        return;
+    }
+    const scale = 1;
+    global.lon_centre += (x_norm - global.mouse_down_x) * scale * -1.0;
+    global.lat_centre += (y_norm - global.mouse_down_y) * scale;
+    global.mouse_down_x = x_norm;
+    global.mouse_down_y = y_norm;
+    render();
+}
+
+pub export fn init_program() void {
     logWasm(map_data_arr.items.ptr, 1000);
-    const program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
+    global.program = compileLinkProgram(vs_source, vs_source.len, fs_source, fs_source.len);
     const map_data_f32: []const f32 = @alignCast(std.mem.bytesAsSlice(f32, map_data_arr.items));
-    const vao = bind2DFloat32Data(map_data_f32.ptr, map_data_f32.len);
-    glBindVertexArray(vao);
+    global.vao = bind2DFloat32Data(map_data_f32.ptr, map_data_f32.len);
+    global.lat_centre_loc = glGetUniformLoc(global.program, lat_centre_key, lat_centre_key.len);
+    global.lon_centre_loc = glGetUniformLoc(global.program, lon_centre_key, lon_centre_key.len);
+}
+
+pub export fn render() void {
+    const map_data_f32: []const f32 = @alignCast(std.mem.bytesAsSlice(f32, map_data_arr.items));
+    glBindVertexArray(global.vao);
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(Gl.COLOR_BUFFER_BIT);
 
-    glUseProgram(program);
-    const lat_centre = glGetUniformLoc(program, lat_centre_key, lat_centre_key.len);
-    const lon_centre = glGetUniformLoc(program, lon_centre_key, lon_centre_key.len);
-    const glasgow_lat_centre = MAP_DATA.min_lat + ((MAP_DATA.max_lat - MAP_DATA.min_lat) / 2);
-    const glasgow_lon_centre = MAP_DATA.min_lon + ((MAP_DATA.max_lon - MAP_DATA.min_lon) / 2);
-    // glUniform1f(lat_centre, MAP_DATA.min_lat);
-    // glUniform1f(lon_centre, MAP_DATA.min_lon);
-    glUniform1f(lat_centre, glasgow_lat_centre);
-    glUniform1f(lon_centre, glasgow_lon_centre);
-    // glUniform1f(lat_centre, 55.66385);
-    // glUniform1f(lon_centre, 4.724538);
+    glUseProgram(global.program);
+    glUniform1f(global.lat_centre_loc, global.lat_centre);
+    glUniform1f(global.lon_centre_loc, global.lon_centre);
     {
         const offset = 0;
         const vertexCount = map_data_f32.len / 2;

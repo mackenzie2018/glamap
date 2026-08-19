@@ -140,41 +140,40 @@ async function init() {
   while (true) {
     // const array_buf = new ArrayBuffer(4096);
     const { value, done } = await data_reader.read(new Uint8Array(array_buf));
-    array_buf = value.buffer;
     if (done) break;
+
+    array_buf = value.buffer;
     const chunk_buf = new Uint8Array(memory.buffer, mod.instance.exports.global_chunk.value, 16384);
     chunk_buf.set(value);
     mod.instance.exports.pushData(value.length);
-    // console.log(chunk_buf);
-    // mod.instance.exports.pushData(value.byteLength);
-    console.log('Received: ', value, value.byteLength);
   }
 
+  mod.instance.exports.init_program();
 
 
 
-  // canvas.onousedown = (ev) => {
-  //   const rect = canvas.getBoundingClientRect();
-  //   mod.instance.exports.mouseDown(
-  //     ev.clientX - rect.left,
-  //     ev.clientY = rect.top,
-  //   );
-  // };
-  //
-  //
+  canvas.onmousedown = (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    mod.instance.exports.mouseDown(
+      (ev.clientX - rect.left) / rect.width,
+      (ev.clientY - rect.top) / rect.height,
+    );
+  };
+
+
   // canvas.onmouseup = () => {
   //   mod.instance.exports.mouseUp();
   // };
-  //
-  // canvas.onmousemove = (ev) => {
-  //   const rect = canvas.getBoundingClientRect();
-  //   mod.instance.exports.mouseDown(
-  //     ev.clientX - rect.left,
-  //     ev.clientY = rect.top,
-  //   );
-  // };
 
-  mod.instance.exports.run();
+  canvas.onmousemove = (ev) => {
+    const rect = canvas.getBoundingClientRect();
+    mod.instance.exports.mouseMove(
+      (ev.clientX - rect.left) / rect.width,
+      (ev.clientY - rect.top) / rect.height,
+    );
+  };
+
+  mod.instance.exports.render();
 };
 
 window.onload = init
